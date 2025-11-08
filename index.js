@@ -35,6 +35,17 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
 
+        const  db = client.db("StudyMateDB");
+        const partnersCollection = db.collection("partners");
+
+        app.get('/partners', async (req, res) => {
+
+
+            const cursor = partnersCollection.find();
+            const result = await cursor.toArray();
+            res.send(result);
+        });
+
 
 
 
