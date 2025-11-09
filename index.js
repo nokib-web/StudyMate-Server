@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 require('dotenv').config();
 const app = express()
+const admin = require("firebase-admin");
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const port = process.env.PORT || 3000
 
@@ -37,6 +38,7 @@ async function run() {
 
         const  db = client.db("StudyMateDB");
         const partnersCollection = db.collection("partners");
+        const connectionsCollection = db.collection("connections");
 
         app.get('/partners', async (req, res) => {
 
@@ -51,6 +53,17 @@ async function run() {
             const newPartner = req.body;
             console.log(newPartner);
             const result = await partnersCollection.insertOne(newPartner);
+            res.send(result);
+        });
+
+
+        // connection related api
+        app.get('/connections/:email', async (req, res) => {
+            const email = req.params.email;
+            console.log(email);
+            const query = { email: email };
+            const cursor = connectionsCollection.find(query);
+            const result = await cursor.toArray();
             res.send(result);
         });
 
