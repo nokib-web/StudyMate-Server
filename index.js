@@ -4,7 +4,7 @@ require('dotenv').config();
 const app = express()
 const admin = require("firebase-admin");
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-// const admin = require("firebase-admin");
+
 const port = process.env.PORT || 3000
 
 const serviceAccount = require('./StudyMate_SDK.json');
@@ -69,6 +69,10 @@ async function run() {
         app.get('/partners', async (req, res) => {
 
             const query = {};
+            const email = req.query.email;
+            if (email) {
+                query.email = email;
+            }
 
             const cursor = partnersCollection.find(query);
             const result = await cursor.toArray();
@@ -76,7 +80,7 @@ async function run() {
         });
 
         // Get a single partner by ID
-        app.get('/partners/:id',  async (req, res) => {
+        app.get('/partners/:id', verifyFireBaseToken, async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
             const result = await partnersCollection.findOne(query);
@@ -84,7 +88,7 @@ async function run() {
         });
 
         // Add a new partner
-        app.post('/partners',  async (req, res) => {
+        app.post('/partners', verifyFireBaseToken,  async (req, res) => {
             const newPartner = req.body;
             console.log(newPartner);
             const result = await partnersCollection.insertOne(newPartner);
@@ -106,8 +110,10 @@ async function run() {
             res.send(result);
         });
 
+
+
         // connections related api
-        app.post('/connections', async (req, res) => {
+        app.post('/connections',  async (req, res) => {
             const request = req.body;
             const result = await connectionsCollection.insertOne(request);
             res.send(result);
@@ -116,13 +122,22 @@ async function run() {
 
 
         // Get connections by sender email
-        app.get('/connections/:email',  async (req, res) => {
-            const email = req.params.email;
-            const query = { senderEmail: email };
-            const cursor = connectionsCollection.find(query);
-            const result = await cursor.toArray();
+
+        
+        app.get('/connections', verifyFireBaseToken,  async (req, res) => {
+            const { email } = req.query;
+            
+            if (email !== req.token_email) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            const query = email ? { senderEmail: email } : {};
+            const result = await connectionsCollection.find(query).toArray();
             res.send(result);
         });
+
+
+
+       
 
         // Delete a connection
         app.delete('/connections/:id', async (req, res) => {
