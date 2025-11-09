@@ -47,6 +47,14 @@ async function run() {
         });
 
 
+        app.post('/partners', async (req, res) => {
+            const newPartner = req.body;
+            console.log(newPartner);
+            const result = await partnersCollection.insertOne(newPartner);
+            res.send(result);
+        });
+
+
 
 
 
