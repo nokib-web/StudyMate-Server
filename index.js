@@ -63,6 +63,47 @@ async function run() {
         const db = client.db("StudyMateDB");
         const partnersCollection = db.collection("partners");
         const connectionsCollection = db.collection("connections");
+        const usersCollection = db.collection("users");
+
+
+
+
+        // users related api
+        app.post('/users', async (req, res) => {
+            const newUser = req.body;
+            const email = req.body.email;
+            const query = { email: email }
+            const existingUser = await usersCollection.findOne(query);
+
+            if (existingUser) {
+                res.send({ message: 'user already exits. do not need to insert again' })
+            }
+            else {
+                const result = await usersCollection.insertOne(newUser);
+                res.send(result);
+            }
+        })
+
+        // get user by email
+        app.get('/users/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
+            const result = await usersCollection.findOne(query);
+            res.send(result);
+        });
+
+        // update user information
+        app.put("/users/:email", async (req, res) => {
+            const email = req.params.email;
+            const update = req.body;
+            const result = await usersCollection.updateOne(
+                { email },
+                { $set: { name: update.name, image: update.image } },
+                { upsert: true }
+            );
+            res.send(result);
+        });
+
 
         // partners related api
         // Get all partners
@@ -88,7 +129,7 @@ async function run() {
         });
 
         // Add a new partner
-        app.post('/partners', verifyFireBaseToken,  async (req, res) => {
+        app.post('/partners', verifyFireBaseToken, async (req, res) => {
             const newPartner = req.body;
             console.log(newPartner);
             const result = await partnersCollection.insertOne(newPartner);
@@ -109,11 +150,19 @@ async function run() {
             const result = await partnersCollection.updateOne(filter, updatedDoc);
             res.send(result);
         });
+        
+        // Delete a partner
+        app.delete('/partners/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await partnersCollection.deleteOne(query);
+            res.send(result);
+        });
 
 
 
         // connections related api
-        app.post('/connections',  async (req, res) => {
+        app.post('/connections', async (req, res) => {
             const request = req.body;
             const result = await connectionsCollection.insertOne(request);
             res.send(result);
@@ -123,10 +172,10 @@ async function run() {
 
         // Get connections by sender email
 
-        
-        app.get('/connections', verifyFireBaseToken,  async (req, res) => {
+
+        app.get('/connections', verifyFireBaseToken, async (req, res) => {
             const { email } = req.query;
-            
+
             if (email !== req.token_email) {
                 return res.status(403).send({ message: 'forbidden access' });
             }
@@ -137,7 +186,7 @@ async function run() {
 
 
 
-       
+
 
         // Delete a connection
         app.delete('/connections/:id', async (req, res) => {
