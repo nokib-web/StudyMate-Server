@@ -120,6 +120,22 @@ async function run() {
             res.send(result);
         });
 
+
+        // Get top partners with sorting and limiting
+        app.get('/latest-products', async (req, res) => {
+            const cursor = productsCollection.find().sort({ created_at: -1 }).limit(6);
+            const result = await cursor.toArray();
+            res.send(result);
+        })
+
+        // Get top 3 partners by rating
+        app.get('/top-partners', async (req, res) => {
+            const cursor = partnersCollection.find().sort({ rating: -1 }).limit(3);
+            const result = await cursor.toArray();
+            res.send(result);
+        });
+
+
         // Get a single partner by ID
         app.get('/partners/:id', verifyFireBaseToken, async (req, res) => {
             const id = req.params.id;
@@ -139,18 +155,20 @@ async function run() {
 
         // Update partner information
         app.patch('/partners/:id', async (req, res) => {
-            const id = req.params.id;
-            const updateData = req.body;
-            const filter = { _id: new ObjectId(id) };
+            try {
+                const id = req.params.id;
+                const result = await partnersCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    { $inc: { partnerCount: 1 } }
+                );
 
-            const updatedDoc = {
-                $set: updateData,
-            };
-
-            const result = await partnersCollection.updateOne(filter, updatedDoc);
-            res.send(result);
+                res.send(result);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ message: 'Failed to increment partner count' });
+            }
         });
-        
+
         // Delete a partner
         app.delete('/partners/:id', async (req, res) => {
             const id = req.params.id;
