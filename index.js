@@ -19,6 +19,7 @@ admin.initializeApp({
 // middle
 app.use(cors({
     origin: ['https://study-mate-phi.vercel.app', 'http://localhost:3000'],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
     
 }))
