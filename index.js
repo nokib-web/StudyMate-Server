@@ -18,11 +18,13 @@ admin.initializeApp({
 
 // middle
 app.use(cors({
-    origin: ['https://study-mate-phi.vercel.app', 'http://localhost:3000'],
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    origin: [
+        "http://localhost:5173/",
+        "https://study-mate-server-nazmul-hasan-nokibs-projects.vercel.app/"
+    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     credentials: true,
-    
-}))
+}));
 
 app.use(express.json())
 
