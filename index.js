@@ -134,7 +134,10 @@ async function run() {
 
         // Get top 3 partners by rating
         app.get('/top-partners', async (req, res) => {
-            const cursor = partnersCollection.find().sort({ rating: -1 }).limit(3);
+            const cursor = partnersCollection.find()
+            
+            .sort({ rating: -1 })
+            .limit(3);
             const result = await cursor.toArray();
             res.send(result);
         });
