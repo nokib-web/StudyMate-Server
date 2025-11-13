@@ -2,5 +2,6 @@ node_modules
 .env
 studyMate_SDK.json
 .vercel
+encode.js
 
 
