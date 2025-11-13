@@ -17,7 +17,12 @@ admin.initializeApp({
 });
 
 // middle
-app.use(cors())
+app.use(cors({
+    origin: ['https://study-mate-phi.vercel.app', 'http://localhost:3000'],
+    credentials: true,
+    
+}))
+
 app.use(express.json())
 
 
