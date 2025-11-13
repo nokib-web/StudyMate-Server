@@ -16,24 +16,8 @@ admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
 });
 
-// middle
-app.use(cors({
-    origin: [
-        "http://localhost:5173",
-        "https://study-mate-server-nazmul-hasan-nokibs-projects.vercel.app"
-    ],
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    credentials: true,
-}));
-app.options("*", cors({
-    origin: [
-        "http://localhost:5173",
-        "https://study-mate-server-nazmul-hasan-nokibs-projects.vercel.app"
-    ],
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    credentials: true,
-}));
-
+// middle wares
+app.use(cors());
 app.use(express.json())
 
 
