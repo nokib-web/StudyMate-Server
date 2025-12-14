@@ -10,10 +10,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cloudinary": "^2.8.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "firebase-admin": "^13.6.0",
-    "mongodb": "^7.0.0"
+    "mongodb": "^7.0.0",
+    "multer": "^2.0.2",
+    "socket.io": "^4.8.1",
+    "zod": "^4.1.13"
   }
 }

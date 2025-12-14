@@ -1,0 +1,86 @@
+const { getCollection } = require("../config/db");
+const { ObjectId } = require('mongodb');
+
+const getPartnersCollection = () => getCollection("partners");
+
+// Get all partners
+const getPartners = async (req, res) => {
+    const partnersCollection = getPartnersCollection();
+    const query = {};
+    const email = req.query.email;
+    if (email) {
+        query.email = email;
+    }
+
+    const cursor = partnersCollection.find(query);
+    const result = await cursor.toArray();
+    res.send(result);
+};
+
+// Get Top Partners
+const getTopPartners = async (req, res) => {
+    const partnersCollection = getPartnersCollection();
+    const cursor = partnersCollection.find()
+        .sort({ rating: -1 })
+        .limit(3);
+    const result = await cursor.toArray();
+    res.send(result);
+};
+
+// Get Single Partner
+const getPartnerById = async (req, res) => {
+    const partnersCollection = getPartnersCollection();
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+    const result = await partnersCollection.findOne(query);
+    res.send(result);
+};
+
+// Create Partner
+const createPartner = async (req, res) => {
+    const partnersCollection = getPartnersCollection();
+    const newPartner = req.body;
+
+    // Server-side validation
+    if (!newPartner.name || !newPartner.email || !newPartner.availabilityTime || !newPartner.subject) {
+        return res.status(400).send({ message: "Missing required fields (name, email, availabilityTime, subject)" });
+    }
+
+    const result = await partnersCollection.insertOne(newPartner);
+    res.send(result);
+};
+
+// Update Partner (Increment count)
+const updatePartnerCount = async (req, res) => {
+    const partnersCollection = getPartnersCollection();
+    try {
+        const id = req.params.id;
+        const result = await partnersCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $inc: { partnerCount: 1 } }
+        );
+
+        res.send(result);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: 'Failed to increment partner count' });
+    }
+};
+
+// Delete Partner
+const deletePartner = async (req, res) => {
+    const partnersCollection = getPartnersCollection();
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+    const result = await partnersCollection.deleteOne(query);
+    res.send(result);
+};
+
+module.exports = {
+    getPartners,
+    getTopPartners,
+    getPartnerById,
+    createPartner,
+    updatePartnerCount,
+    deletePartner
+};

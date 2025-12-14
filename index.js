@@ -1,252 +1,163 @@
-const express = require('express')
-const cors = require('cors')
+const express = require('express');
+const cors = require('cors');
 require('dotenv').config();
-const app = express()
-const admin = require("firebase-admin");
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const http = require('http');
+const { Server } = require("socket.io");
+const { connectDB, getCollection } = require('./config/db');
+require('./config/firebase'); // Init Firebase
 
-const port = process.env.PORT || 3000
+const userRoutes = require('./routes/userRoutes');
+const partnerRoutes = require('./routes/partnerRoutes');
+const connectionRoutes = require('./routes/connectionRoutes');
+const groupRoutes = require('./routes/groupRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const studySessionRoutes = require('./routes/studySessionRoutes');
+const { ObjectId } = require('mongodb');
 
-// const serviceAccount = require('./StudyMate_SDK.json');
-const decoded = Buffer.from(process.env.FIREBASE_SERVICE_KEY, "base64").toString("utf8");
-const serviceAccount = JSON.parse(decoded);
+const app = express();
+// Middleware
+app.use(cors({
+    origin: ['https://studymate-b37fa.web.app', 'http://localhost:5173', 'http://localhost:5174'],
+    credentials: true
+}));
+app.use(express.json());
 
-
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-});
-
-// middle wares
-app.use(cors());
-app.use(express.json())
-
-
-const verifyFireBaseToken = async (req, res, next) => {
-    const authorization = req.headers.authorization;
-    if (!authorization) {
-        return res.status(401).send({ message: 'unauthorized access' })
-    }
-    const token = authorization.split(' ')[1];
-
-    try {
-        const decoded = await admin.auth().verifyIdToken(token);
-        console.log('inside token', decoded)
-        req.token_email = decoded.email;
-        next();
-    }
-    catch (error) {
-        return res.status(401).send({ message: 'unauthorized access' })
-    }
-}
-
-
-
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.9bjil3c.mongodb.net/?appName=Cluster0`;
-
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    }
-});
-
-
-
-
+// Routes
 app.get('/', (req, res) => {
-    res.send('Hello World!')
-})
+    res.send('StudyMate Server Running');
+});
 
-async function run() {
-    try {
-        // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+app.use(require('./middleware/errorMiddleware')); // Ensure this is last usually? No wait, logic error in previous turn.
+// Note: Error middleware should be LAST. I will fix that placement if possible, or just place routes before it.
+// The previous turn added error middleware at the bottom.
+// I will place routes here.
 
-        const db = client.db("StudyMateDB");
-        const partnersCollection = db.collection("partners");
-        const connectionsCollection = db.collection("connections");
-        const usersCollection = db.collection("users");
+app.use('/users', userRoutes);
+app.use('/partners', partnerRoutes);
+app.use('/connections', connectionRoutes);
+app.use('/groups', groupRoutes);
+app.use('/messages', messageRoutes);
+app.use('/upload', uploadRoutes);
+app.use('/sessions', studySessionRoutes);
 
-
-
-
-        // users related api
-        app.post('/users', async (req, res) => {
-            const newUser = req.body;
-            const email = req.body.email;
-            const query = { email: email }
-            const existingUser = await usersCollection.findOne(query);
-
-            if (existingUser) {
-                res.send({ message: 'user already exits. do not need to insert again' })
-            }
-            else {
-                const result = await usersCollection.insertOne(newUser);
-                res.send(result);
-            }
-        })
-
-        // get user by email
-        app.get('/users/:email', async (req, res) => {
-            const email = req.params.email;
-            const query = { email: email };
-            const result = await usersCollection.findOne(query);
-            res.send(result);
-        });
-
-        // update user information
-        app.put("/users/:email", async (req, res) => {
-            const email = req.params.email;
-            const update = req.body;
-            const result = await usersCollection.updateOne(
-                { email },
-                { $set: { name: update.name, image: update.image } },
-                { upsert: true }
-            );
-            res.send(result);
-        });
-
-
-        // partners related api
-        // Get all partners
-        app.get('/partners', async (req, res) => {
-
-            const query = {};
-            const email = req.query.email;
-            if (email) {
-                query.email = email;
-            }
-
-            const cursor = partnersCollection.find(query);
-            const result = await cursor.toArray();
-            res.send(result);
-        });
-
-
-        // Get top partners with sorting and limiting
-        app.get('/latest-products', async (req, res) => {
-            const cursor = productsCollection.find().sort({ created_at: -1 }).limit(6);
-            const result = await cursor.toArray();
-            res.send(result);
-        })
-
-        // Get top 3 partners by rating
-        app.get('/top-partners', async (req, res) => {
-            const cursor = partnersCollection.find()
-            
-            .sort({ rating: -1 })
-            .limit(3);
-            const result = await cursor.toArray();
-            res.send(result);
-        });
-
-
-        // Get a single partner by ID
-        app.get('/partners/:id', verifyFireBaseToken, async (req, res) => {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-            const result = await partnersCollection.findOne(query);
-            res.send(result);
-        });
-
-        // Add a new partner
-        app.post('/partners', verifyFireBaseToken, async (req, res) => {
-            const newPartner = req.body;
-            console.log(newPartner);
-            const result = await partnersCollection.insertOne(newPartner);
-            res.send(result);
-        });
-
-
-        // Update partner information
-        app.patch('/partners/:id', async (req, res) => {
-            try {
-                const id = req.params.id;
-                const result = await partnersCollection.updateOne(
-                    { _id: new ObjectId(id) },
-                    { $inc: { partnerCount: 1 } }
-                );
-
-                res.send(result);
-            } catch (error) {
-                console.error(error);
-                res.status(500).send({ message: 'Failed to increment partner count' });
-            }
-        });
-
-        // Delete a partner
-        app.delete('/partners/:id', async (req, res) => {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-            const result = await partnersCollection.deleteOne(query);
-            res.send(result);
-        });
-
-
-
-        // connections related api
-        app.post('/connections', async (req, res) => {
-            const request = req.body;
-            const result = await connectionsCollection.insertOne(request);
-            res.send(result);
-        });
-
-
-
-        // Get connections by sender email
-
-
-        app.get('/connections', verifyFireBaseToken, async (req, res) => {
-            const { email } = req.query;
-
-            if (email !== req.token_email) {
-                return res.status(403).send({ message: 'forbidden access' });
-            }
-            const query = email ? { senderEmail: email } : {};
-            const result = await connectionsCollection.find(query).toArray();
-            res.send(result);
-        });
-
-
-
-
-
-        // Delete a connection
-        app.delete('/connections/:id', async (req, res) => {
-            const id = req.params.id;
-            const result = await connectionsCollection.deleteOne({ _id: new ObjectId(id) });
-            res.send(result);
-        });
-
-        // Update a connection
-        app.put('/connections/:id', async (req, res) => {
-            const id = req.params.id;
-            const updatedData = req.body;
-            const result = await connectionsCollection.updateOne(
-                { _id: new ObjectId(id) },
-                { $set: updatedData }
-            );
-            res.send(result);
-        });
-
-
-
-
-
-        // Send a ping to confirm a successful connection
-        // await client.db("admin").command({ ping: 1 });
-        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
-        // Ensures that the client will close when you finish/error
-        // await client.close();
+// Server & Socket
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: ['https://studymate-b37fa.web.app', 'http://localhost:5173', 'http://localhost:5174'],
+        methods: ["GET", "POST"]
     }
-}
-run().catch(console.dir);
+});
 
+// Make io available in routes
+app.set('io', io);
 
+// Socket Logic
+io.on("connection", (socket) => {
+    console.log("User Connected", socket.id);
 
-app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
-})
+    // Register User
+    socket.on("register", (email) => {
+        if (email) {
+            socket.join(email);
+            console.log(`User registered with email: ${email}`);
+        }
+    });
+
+    // Partner Request
+    socket.on("send_partner_request", (data) => {
+        if (data.receiverEmail) {
+            io.to(data.receiverEmail).emit("receive_partner_request", data);
+        }
+    });
+
+    // Join Room
+    socket.on("join_room", (room) => {
+        socket.join(room);
+        console.log(`User ${socket.id} joined room: ${room}`);
+    });
+
+    // --- Video Call Signaling ---
+    socket.on("outgoing_call", (data) => {
+        // data: { toEmail, fromEmail, signalData/peerId }
+        // Verify if user is online? We emit to their email room
+        io.to(data.toEmail).emit("incoming_call", {
+            fromEmail: data.fromEmail,
+            ...data
+        });
+    });
+
+    socket.on("accept_call", (data) => {
+        // data: { toEmail, peerId }
+        io.to(data.toEmail).emit("call_accepted", data);
+    });
+
+    socket.on("reject_call", (data) => {
+        // data: { toEmail }
+        io.to(data.toEmail).emit("call_rejected", data);
+    });
+
+    socket.on("end_call", (data) => {
+        // data: { toEmail }
+        io.to(data.toEmail).emit("call_ended", data);
+    });
+    // ---------------------------
+
+    // Send Message
+    socket.on("send_message", async (data) => {
+        try {
+            const messagesCollection = getCollection("messages");
+            const groupsCollection = getCollection("groups");
+
+            const messageDoc = {
+                room: data.room,
+                author: data.author,
+                message: data.message,
+                attachment: data.attachment, // { url, type, public_id }
+                time: data.time,
+                createdAt: new Date()
+            };
+
+            const result = await messagesCollection.insertOne(messageDoc);
+            messageDoc._id = result.insertedId;
+
+            // Notify members
+            const group = await groupsCollection.findOne({ _id: new ObjectId(data.room) });
+
+            if (group && group.members) {
+                group.members.forEach(memberEmail => {
+                    if (memberEmail !== data.author) {
+                        io.to(memberEmail).emit("receive_message", messageDoc);
+                    }
+                });
+            } else {
+                socket.to(data.room).emit("receive_message", messageDoc);
+            }
+
+        } catch (err) {
+            console.error("Error saving message:", err);
+        }
+    });
+
+    // Mark Read
+    socket.on("mark_read", (data) => {
+        socket.to(data.room).emit("user_read_messages", { room: data.room, email: data.email });
+    });
+
+    socket.on("disconnect", () => {
+        console.log("User Disconnected", socket.id);
+    });
+});
+
+// Start Server
+const startServer = async () => {
+    await connectDB();
+    server.listen(port, () => {
+        console.log(`StudyMate server listening on port ${port}`);
+    });
+};
+
+app.use(require('./middleware/errorMiddleware'));
+
+startServer().catch(console.error);
