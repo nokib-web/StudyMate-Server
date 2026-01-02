@@ -46,6 +46,12 @@ const createPartner = async (req, res) => {
         return res.status(400).send({ message: "Missing required fields (name, email, availabilityTime, subject)" });
     }
 
+    // Check if partner with this email already exists
+    const existingPartner = await partnersCollection.findOne({ email: newPartner.email });
+    if (existingPartner) {
+        return res.status(409).send({ message: "A partner profile with this email already exists." });
+    }
+
     const result = await partnersCollection.insertOne(newPartner);
     res.send(result);
 };

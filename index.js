@@ -42,6 +42,8 @@ app.use('/groups', groupRoutes);
 app.use('/messages', messageRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/sessions', studySessionRoutes);
+app.use('/reviews', require('./routes/reviewRoutes'));
+app.use('/blogs', require('./routes/blogRoutes'));
 
 // Server & Socket
 const server = http.createServer(app);
