@@ -82,11 +82,39 @@ const deletePartner = async (req, res) => {
     res.send(result);
 };
 
+// Get Category Stats
+const getCategoryStats = async (req, res) => {
+    try {
+        const partnersCollection = getPartnersCollection();
+        const pipeline = [
+            {
+                $group: {
+                    _id: "$subject",
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    subject: "$_id",
+                    count: 1,
+                    _id: 0
+                }
+            }
+        ];
+        const result = await partnersCollection.aggregate(pipeline).toArray();
+        res.send(result);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to fetch category stats" });
+    }
+};
+
 module.exports = {
     getPartners,
     getTopPartners,
     getPartnerById,
     createPartner,
     updatePartnerCount,
-    deletePartner
+    deletePartner,
+    getCategoryStats
 };

@@ -9,6 +9,7 @@ const { createPartnerSchema } = require('../models/validationSchemas');
 // Public routes
 router.get('/', partnerController.getPartners);
 router.get('/top-partners', partnerController.getTopPartners);
+router.get('/categories', partnerController.getCategoryStats);
 
 // Protected routes
 router.get('/:id', verifyFireBaseToken, partnerController.getPartnerById);

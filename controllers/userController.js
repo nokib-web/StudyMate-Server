@@ -87,4 +87,22 @@ const updateUserRole = async (req, res) => {
     res.send(result);
 };
 
-module.exports = { createUser, getUserByEmail, updateUser, getAdmin, getAllUsers, updateUserRole };
+const getPublicStats = async (req, res) => {
+    try {
+        const usersCount = await getUsersCollection().countDocuments();
+        const sessionsCount = await getCollection("study_sessions").countDocuments();
+        const partnersCount = await getCollection("partners").countDocuments();
+        const reviewsCount = await getCollection("reviews").countDocuments();
+
+        res.send({
+            users: usersCount,
+            sessions: sessionsCount,
+            partners: partnersCount,
+            reviews: reviewsCount
+        });
+    } catch (error) {
+        res.status(500).send({ message: "Failed to fetch stats" });
+    }
+};
+
+module.exports = { createUser, getUserByEmail, updateUser, getAdmin, getAllUsers, updateUserRole, getPublicStats };
