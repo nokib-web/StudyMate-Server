@@ -30,30 +30,11 @@ app.get('/', (req, res) => {
     res.send('StudyMate Server Running');
 });
 
-// Health check / Keep-alive route
 app.get('/ping', (req, res) => {
     res.send({ status: 'active', timestamp: new Date() });
 });
 
-// Self-ping to stay awake (Render free tier workaround)
-// Note: This only works while the server is already awake. 
-// Use an external service like Cron-job.org for full reliability.
-setInterval(() => {
-    const url = process.env.SERVER_URL || `http://localhost:${port}`;
-    if (url.includes('render.com')) {
-        http.get(`${url}/ping`, (res) => {
-            console.log(`Self-ping status: ${res.statusCode}`);
-        }).on('error', (err) => {
-            console.error('Self-ping failed:', err.message);
-        });
-    }
-}, 600000); // Every 10 minutes
-
-app.use(require('./middleware/errorMiddleware')); // Ensure this is last usually? No wait, logic error in previous turn.
-// Note: Error middleware should be LAST. I will fix that placement if possible, or just place routes before it.
-// The previous turn added error middleware at the bottom.
-// I will place routes here.
-
+// Routes
 app.use('/users', userRoutes);
 app.use('/partners', partnerRoutes);
 app.use('/connections', connectionRoutes);
@@ -65,6 +46,9 @@ app.use('/reviews', require('./routes/reviewRoutes'));
 app.use('/blogs', require('./routes/blogRoutes'));
 app.use('/dashboard', require('./routes/dashboardRoutes'));
 app.use('/stories', require('./routes/storyRoutes'));
+
+// Error middleware (MUST be after routes)
+app.use(require('./middleware/errorMiddleware'));
 
 // Server & Socket
 const server = http.createServer(app);
@@ -195,6 +179,5 @@ const startServer = async () => {
     });
 };
 
-app.use(require('./middleware/errorMiddleware'));
 
 startServer().catch(console.error);

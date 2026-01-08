@@ -39,7 +39,7 @@ const getTopPartners = async (req, res) => {
     const partnersCollection = getPartnersCollection();
     const cursor = partnersCollection.find()
         .sort({ rating: -1 })
-        .limit(3);
+        .limit(4);
     const result = await cursor.toArray();
     res.send(result);
 };
