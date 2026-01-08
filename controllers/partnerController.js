@@ -5,16 +5,33 @@ const getPartnersCollection = () => getCollection("partners");
 
 // Get all partners
 const getPartners = async (req, res) => {
-    const partnersCollection = getPartnersCollection();
-    const query = {};
-    const email = req.query.email;
-    if (email) {
-        query.email = email;
-    }
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 12;
+        const skip = (page - 1) * limit;
 
-    const cursor = partnersCollection.find(query);
-    const result = await cursor.toArray();
-    res.send(result);
+        const partnersCollection = getPartnersCollection();
+        const query = {};
+        const email = req.query.email;
+        if (email) {
+            query.email = email;
+        }
+
+        const total = await partnersCollection.countDocuments(query);
+        const partners = await partnersCollection.find(query)
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+
+        res.send({
+            partners,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        res.status(500).send({ message: "Failed to fetch partners" });
+    }
 };
 
 // Get Top Partners

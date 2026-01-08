@@ -8,15 +8,28 @@ const getBlogs = async (req, res) => {
     try {
         const blogsCollection = getBlogsCollection();
         const category = req.query.category;
-        const query = {};
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
 
+        const query = {};
         if (category) {
             query.category = category;
         }
 
-        const cursor = blogsCollection.find(query).sort({ createdAt: -1 });
-        const result = await cursor.toArray();
-        res.send(result);
+        const total = await blogsCollection.countDocuments(query);
+        const blogs = await blogsCollection.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+
+        res.send({
+            blogs,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
     } catch (error) {
         console.error(error);
         res.status(500).send({ message: "Failed to fetch blogs" });

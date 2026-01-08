@@ -16,8 +16,24 @@ const createStory = async (req, res) => {
 
 const getStories = async (req, res) => {
     try {
-        const stories = await getCollection("success_stories").find().sort({ createdAt: -1 }).toArray();
-        res.send(stories);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 12;
+        const skip = (page - 1) * limit;
+
+        const collection = getCollection("success_stories");
+        const total = await collection.countDocuments();
+        const stories = await collection.find()
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+
+        res.send({
+            stories,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
     } catch (error) {
         res.status(500).send({ message: "Failed to fetch stories" });
     }

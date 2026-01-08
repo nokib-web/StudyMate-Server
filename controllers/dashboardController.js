@@ -6,59 +6,87 @@ const getDashboardStats = async (req, res) => {
         const { email } = req.params;
         const connectionsCollection = getCollection("connections");
         const sessionsCollection = getCollection("study_sessions");
-        const blogsCollection = getCollection("blogs");
-        const usersCollection = getCollection("users");
 
-        // 1. Partner Count
-        // Connections where user is sender or receiver (if receiver logic exists)
-        // Currently connectionController only searches senderEmail
-        const connections = await connectionsCollection.countDocuments({ senderEmail: email });
+        // 1. Partner and Connection stats
+        const connectionsPromise = connectionsCollection.countDocuments({ senderEmail: email });
+        const partnersPromise = connectionsCollection.find({ senderEmail: email }).toArray();
 
-        // 2. Study Sessions Count (Goals Met)
-        const sessionsJoined = await sessionsCollection.countDocuments({ participants: email });
+        // 2. Total Sessions Joined
+        const sessionsJoinedPromise = sessionsCollection.countDocuments({ participants: email });
 
-        // 3. Study Hours (Sum of durations of joined sessions)
-        const sessions = await sessionsCollection.find({ participants: email }).toArray();
-        const totalMinutes = sessions.reduce((acc, curr) => acc + (curr.duration || 0), 0);
-        const studyHours = (totalMinutes / 60).toFixed(1);
+        // 3. Aggregate Work: Study Hours, Activity Data, and Streak
+        const now = new Date();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 
-        // 4. Streak (Dummy for now or calculated from sessions)
-        // Let's assume streak is count of sessions in last 5 days
         const fiveDaysAgo = new Date();
         fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-        const recentSessions = await sessionsCollection.countDocuments({
-            participants: email,
-            startTime: { $gte: fiveDaysAgo }
-        });
-        const streak = recentSessions > 0 ? recentSessions : 0;
 
-        // 5. Activity data (Last 7 days breakdown)
+        const aggregationPromise = sessionsCollection.aggregate([
+            { $match: { participants: email } },
+            {
+                $facet: {
+                    totalStats: [
+                        {
+                            $group: {
+                                _id: null,
+                                totalMinutes: { $sum: { $ifNull: ["$duration", 0] } }
+                            }
+                        }
+                    ],
+                    activityData: [
+                        { $match: { startTime: { $gte: sevenDaysAgo } } },
+                        {
+                            $group: {
+                                _id: { $dateToString: { format: "%Y-%m-%d", date: "$startTime" } },
+                                totalMinutes: { $sum: { $ifNull: ["$duration", 0] } }
+                            }
+                        }
+                    ],
+                    recentSessionsCount: [
+                        { $match: { startTime: { $gte: fiveDaysAgo } } },
+                        { $count: "count" }
+                    ]
+                }
+            }
+        ]).toArray();
+
+        const [
+            connections,
+            partners,
+            sessionsJoined,
+            [aggResults]
+        ] = await Promise.all([
+            connectionsPromise,
+            partnersPromise,
+            sessionsJoinedPromise,
+            aggregationPromise
+        ]);
+
+        // Process Total Hours
+        const totalMinutes = aggResults.totalStats[0]?.totalMinutes || 0;
+        const studyHours = (totalMinutes / 60).toFixed(1);
+
+        // Process Streak
+        const streak = aggResults.recentSessionsCount[0]?.count || 0;
+
+        // Process Activity Data (fill gaps)
         const activityData = [];
         for (let i = 6; i >= 0; i--) {
             const date = new Date();
             date.setDate(date.getDate() - i);
-            const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-            const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+            const dateStr = date.toISOString().split('T')[0];
+            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
 
-            const dailySessions = await sessionsCollection.find({
-                participants: email,
-                startTime: { $gte: startOfDay, $lte: endOfDay }
-            }).toArray();
-
-            const dailyMinutes = dailySessions.reduce((acc, curr) => acc + (curr.duration || 0), 0);
+            const match = aggResults.activityData.find(d => d._id === dateStr);
             activityData.push({
-                name: date.toLocaleDateString('en-US', { weekday: 'short' }),
-                hours: parseFloat((dailyMinutes / 60).toFixed(1))
+                name: dayName,
+                hours: match ? parseFloat((match.totalMinutes / 60).toFixed(1)) : 0
             });
         }
 
-        // 6. Subject Distribution
-        // Group sessions by subject
-        // We need to know which subject the session belongs to. 
-        // Currently session model only has 'topic'. 
-        // Let's try to infer or just use mock for this if not available.
-        // Actually, let's use the user's partners' subjects as "Focus Areas"
-        const partners = await connectionsCollection.find({ senderEmail: email }).toArray();
+        // Subject Distribution
         const subjectCounts = {};
         partners.forEach(p => {
             if (p.subject) {
@@ -71,7 +99,6 @@ const getDashboardStats = async (req, res) => {
             value: subjectCounts[subject]
         }));
 
-        // Default if empty
         if (subjectData.length === 0) {
             subjectData.push({ name: 'General', value: 1 });
         }

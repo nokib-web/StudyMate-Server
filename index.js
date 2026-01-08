@@ -30,6 +30,25 @@ app.get('/', (req, res) => {
     res.send('StudyMate Server Running');
 });
 
+// Health check / Keep-alive route
+app.get('/ping', (req, res) => {
+    res.send({ status: 'active', timestamp: new Date() });
+});
+
+// Self-ping to stay awake (Render free tier workaround)
+// Note: This only works while the server is already awake. 
+// Use an external service like Cron-job.org for full reliability.
+setInterval(() => {
+    const url = process.env.SERVER_URL || `http://localhost:${port}`;
+    if (url.includes('render.com')) {
+        http.get(`${url}/ping`, (res) => {
+            console.log(`Self-ping status: ${res.statusCode}`);
+        }).on('error', (err) => {
+            console.error('Self-ping failed:', err.message);
+        });
+    }
+}, 600000); // Every 10 minutes
+
 app.use(require('./middleware/errorMiddleware')); // Ensure this is last usually? No wait, logic error in previous turn.
 // Note: Error middleware should be LAST. I will fix that placement if possible, or just place routes before it.
 // The previous turn added error middleware at the bottom.
@@ -161,6 +180,18 @@ const startServer = async () => {
     await connectDB();
     server.listen(port, () => {
         console.log(`StudyMate server listening on port ${port}`);
+
+        // Keep-alive mechanism for Render Free Tier
+        const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL;
+        if (RENDER_EXTERNAL_URL) {
+            setInterval(() => {
+                http.get(RENDER_EXTERNAL_URL, (res) => {
+                    console.log(`Keep-alive ping sent to ${RENDER_EXTERNAL_URL}: ${res.statusCode}`);
+                }).on('error', (err) => {
+                    console.error('Keep-alive ping error:', err.message);
+                });
+            }, 14 * 60 * 1000); // Ping every 14 minutes
+        }
     });
 };
 

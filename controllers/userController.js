@@ -71,8 +71,27 @@ const getAdmin = async (req, res) => {
 
 // Get ALL users (Admin only ideally)
 const getAllUsers = async (req, res) => {
-    const result = await getUsersCollection().find().toArray();
-    res.send(result);
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+
+        const usersCollection = getUsersCollection();
+        const total = await usersCollection.countDocuments();
+        const users = await usersCollection.find()
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+
+        res.send({
+            users,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        res.status(500).send({ message: "Failed to fetch users" });
+    }
 };
 
 // Update User Role (Admin only)
