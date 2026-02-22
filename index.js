@@ -161,23 +161,39 @@ io.on("connection", (socket) => {
 
 // Start Server
 const startServer = async () => {
-    await connectDB();
-    server.listen(port, () => {
-        console.log(`StudyMate server listening on port ${port}`);
+    try {
+        await connectDB();
 
-        // Keep-alive mechanism for Render Free Tier
-        const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL;
-        if (RENDER_EXTERNAL_URL) {
-            setInterval(() => {
-                http.get(RENDER_EXTERNAL_URL, (res) => {
-                    console.log(`Keep-alive ping sent to ${RENDER_EXTERNAL_URL}: ${res.statusCode}`);
-                }).on('error', (err) => {
-                    console.error('Keep-alive ping error:', err.message);
-                });
-            }, 14 * 60 * 1000); // Ping every 14 minutes
-        }
-    });
+        server.listen(port, () => {
+            console.log(`🚀 StudyMate server listening on port ${port}`);
+
+            // Keep-alive mechanism for Render Free Tier
+            const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL;
+            if (RENDER_EXTERNAL_URL) {
+                // Ensure URL starts with http
+                const pingUrl = RENDER_EXTERNAL_URL.startsWith('http')
+                    ? RENDER_EXTERNAL_URL
+                    : `https://${RENDER_EXTERNAL_URL}`;
+
+                console.log(`📡 Keep-alive enabled for: ${pingUrl}`);
+
+                setInterval(() => {
+                    try {
+                        http.get(pingUrl, (res) => {
+                            console.log(`Keep-alive ping sent [${res.statusCode}]`);
+                        }).on('error', (err) => {
+                            console.error('Keep-alive ping error:', err.message);
+                        });
+                    } catch (err) {
+                        console.error('Ping failed to execute:', err.message);
+                    }
+                }, 14 * 60 * 1000); // Ping every 14 minutes
+            }
+        });
+    } catch (err) {
+        console.error("❌ Fatal Error during startup:", err);
+        process.exit(1);
+    }
 };
 
-
-startServer().catch(console.error);
+startServer();

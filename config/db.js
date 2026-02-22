@@ -3,6 +3,10 @@ require('dotenv').config();
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.9bjil3c.mongodb.net/?appName=Cluster0`;
 
+if (!process.env.DB_USER || !process.env.DB_PASS) {
+    console.warn("⚠️ WARNING: DB_USER or DB_PASS environment variables are missing!");
+}
+
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -15,12 +19,15 @@ let db;
 
 const connectDB = async () => {
     try {
+        console.log("Attempting to connect to MongoDB...");
         await client.connect();
         db = client.db("StudyMateDB");
-        console.log("Successfully connected to MongoDB!");
+        console.log("✅ Successfully connected to MongoDB!");
         return db;
     } catch (error) {
-        console.error("MongoDB connection failed:", error);
+        console.error("❌ MongoDB connection failed!");
+        console.error("Error Details:", error.message);
+        // On Render, we want to exit so it tries to restart
         process.exit(1);
     }
 };
